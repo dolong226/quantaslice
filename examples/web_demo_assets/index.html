@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QuantaSlice — Live Allocation Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #131b2e;
+    --panel-2: #0f1729;
+    --border: #223047;
+    --border-soft: #1a2537;
+    --text: #e8edf6;
+    --muted: #6b7a99;
+    --teal: #2dd4bf;
+    --coral: #ff5d5d;
+    --amber: #ffb020;
+    --lavender: #8b9dc3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+  }
+
+  .brand-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin: 0 0 4px;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .conn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  .dot.ok { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+  .dot.bad { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+
+  /* ---------- Emergency banner ---------- */
+  .banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(90deg, rgba(255,93,93,0.16), rgba(255,93,93,0.03));
+    border: 1px solid rgba(255,93,93,0.45);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 22px;
+    animation: pulse-bg 1.6s ease-in-out infinite;
+  }
+  .banner.active { display: flex; }
+  .banner .glyph { font-size: 18px; }
+  .banner strong { font-family: 'JetBrains Mono', monospace; color: var(--coral); }
+  .banner span.detail { color: var(--text); font-size: 14px; }
+
+  @keyframes pulse-bg {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,93,93,0.0); }
+    50% { box-shadow: 0 0 0 4px rgba(255,93,93,0.08); }
+  }
+
+  /* ---------- Station grid ---------- */
+  .stations {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .station {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .station.emergency {
+    border-color: rgba(255,93,93,0.55);
+    box-shadow: 0 0 0 1px rgba(255,93,93,0.25), 0 0 22px rgba(255,93,93,0.12);
+    animation: ring 1.6s ease-in-out infinite;
+  }
+
+  @keyframes ring {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255,93,93,0.25), 0 0 14px rgba(255,93,93,0.08); }
+    50% { box-shadow: 0 0 0 1px rgba(255,93,93,0.4), 0 0 26px rgba(255,93,93,0.22); }
+  }
+
+  .station-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .gnb-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    color: var(--muted);
+    border: 1px solid var(--border-soft);
+  }
+  .pill.emergency { color: #ffd7d7; border-color: rgba(255,93,93,0.6); background: rgba(255,93,93,0.14); }
+
+  .prb-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .prb-track {
+    height: 8px;
+    border-radius: 5px;
+    background: var(--panel-2);
+    border: 1px solid var(--border-soft);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .prb-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: var(--teal);
+    transition: width 0.4s ease, background 0.4s ease;
+  }
+  .station.emergency .prb-fill { background: var(--coral); }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 26px;
+    margin-bottom: 12px;
+  }
+
+  .chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .chip.eMBB   { color: var(--teal);     border-color: rgba(45,212,191,0.4);  background: rgba(45,212,191,0.08); }
+  .chip.URLLC  { color: var(--coral);    border-color: rgba(255,93,93,0.5);   background: rgba(255,93,93,0.1); font-weight: 600; }
+  .chip.mMTC   { color: var(--lavender); border-color: rgba(139,157,195,0.4); background: rgba(139,157,195,0.08); }
+
+  .history {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+  .history-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .hdot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-soft);
+    flex-shrink: 0;
+  }
+  .hdot.on { background: var(--coral); }
+
+  /* ---------- Unserved strip ---------- */
+  .unserved {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--amber);
+    border: 1px dashed rgba(255,176,32,0.4);
+    border-radius: 8px;
+    padding: 9px 14px;
+    margin-bottom: 22px;
+  }
+  .unserved.active { display: flex; }
+
+  /* ---------- Event log ---------- */
+  .log-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  .log {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .log-row {
+    display: grid;
+    grid-template-columns: 150px 64px 84px 1fr;
+    gap: 10px;
+    padding: 8px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border-soft);
+    border-left: 3px solid transparent;
+    color: var(--text);
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-row.emergency { border-left-color: var(--coral); background: rgba(255,93,93,0.05); }
+  .log-row .ts { color: var(--muted); }
+  .log-row .flag { color: var(--muted); }
+  .log-row.emergency .flag { color: var(--coral); font-weight: 600; }
+
+  .empty {
+    padding: 20px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  footer {
+    margin-top: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .banner, .station.emergency { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="brand-eyebrow">QuantaSlice</p>
+      <h1>Live Allocation Monitor</h1>
+    </div>
+    <div class="conn">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-text">connecting…</span>
+      <span>·</span>
+      <span id="solver-text">—</span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner">
+    <span class="glyph">⚠</span>
+    <strong>EMERGENCY</strong>
+    <span class="detail" id="banner-detail"></span>
+  </div>
+
+  <div class="stations" id="stations"></div>
+
+  <div class="unserved" id="unserved">
+    <span>⚠</span>
+    <span id="unserved-text"></span>
+  </div>
+
+  <p class="log-title">Event log</p>
+  <div class="log" id="log">
+    <div class="empty">Đang chờ dữ liệu từ pipeline…</div>
+  </div>
+
+  <footer>Cập nhật lần cuối: <span id="last-update" class="mono">—</span> · poll mỗi 300ms qua <span class="mono">/state</span></footer>
+
+</div>
+
+<script>
+const POLL_MS = 300;
+let lastUpdateTs = null;
+
+function fmtTime(iso) {
+  if (!iso) return "—";
+  const m = iso.match(/T(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/);
+  return m ? m[1] : iso;
+}
+
+function renderStations(stations) {
+  const root = document.getElementById("stations");
+  root.innerHTML = "";
+  for (const st of stations) {
+    const pct = st.capacity > 0 ? Math.min(100, (st.used / st.capacity) * 100) : 0;
+    const card = document.createElement("div");
+    card.className = "station" + (st.emergency ? " emergency" : "");
+
+    const chips = st.slices.map(
+      s => `<span class="chip ${s.slice_type}">${s.slice_id} · ${s.slice_type}</span>`
+    ).join("") || `<span class="chip" style="color:var(--muted); border-color:var(--border-soft)">(trống)</span>`;
+
+    const history = st.history.map(
+      h => `<span class="hdot ${h ? 'on' : ''}"></span>`
+    ).join("");
+
+    card.innerHTML = `
+      <div class="station-top">
+        <span class="gnb-id">${st.gnb_id}</span>
+        <span class="pill ${st.emergency ? 'emergency' : ''}">${st.emergency ? 'emergency' : 'idle'}</span>
+      </div>
+      <div class="prb-row">
+        <span>PRB</span>
+        <span>${st.used.toFixed(0)} / ${st.capacity.toFixed(0)}</span>
+      </div>
+      <div class="prb-track"><div class="prb-fill" style="width:${pct}%"></div></div>
+      <div class="chips">${chips}</div>
+      <div class="history">
+        <span class="history-label">history</span>
+        ${history}
+      </div>
+    `;
+    root.appendChild(card);
+  }
+}
+
+function renderBanner(stations) {
+  const emergencyStations = stations.filter(s => s.emergency).map(s => s.gnb_id);
+  const banner = document.getElementById("banner");
+  const detail = document.getElementById("banner-detail");
+  if (emergencyStations.length > 0) {
+    banner.classList.add("active");
+    detail.textContent = `${emergencyStations.join(", ")} đang ưu tiên URLLC`;
+  } else {
+    banner.classList.remove("active");
+  }
+}
+
+function renderUnserved(unserved) {
+  const box = document.getElementById("unserved");
+  const text = document.getElementById("unserved-text");
+  if (unserved && unserved.length > 0) {
+    box.classList.add("active");
+    text.textContent = "Chưa phục vụ: " + unserved.map(s => `${s.slice_id} (${s.slice_type})`).join(", ");
+  } else {
+    box.classList.remove("active");
+  }
+}
+
+function renderLog(events) {
+  const log = document.getElementById("log");
+  if (!events || events.length === 0) {
+    log.innerHTML = `<div class="empty">Chưa có sự kiện nào.</div>`;
+    return;
+  }
+  log.innerHTML = events.map(e => `
+    <div class="log-row ${e.emergency ? 'emergency' : ''}">
+      <span class="ts">${fmtTime(e.timestamp)}</span>
+      <span>${e.gnb_id}</span>
+      <span class="flag">${e.emergency ? 'EMERGENCY' : 'normal'}</span>
+      <span>${e.allocation_summary}</span>
+    </div>
+  `).join("");
+}
+
+function setConnected(ok) {
+  const dot = document.getElementById("conn-dot");
+  const text = document.getElementById("conn-text");
+  dot.className = "dot " + (ok ? "ok" : "bad");
+  text.textContent = ok ? "live" : "mất kết nối";
+}
+
+async function poll() {
+  try {
+    const res = await fetch("/state", { cache: "no-store" });
+    if (!res.ok) throw new Error("bad response");
+    const data = await res.json();
+
+    setConnected(true);
+    document.getElementById("solver-text").textContent = "solver: " + data.solver;
+    if (data.last_update && data.last_update !== lastUpdateTs) {
+      lastUpdateTs = data.last_update;
+      document.getElementById("last-update").textContent = fmtTime(data.last_update);
+    }
+    renderStations(data.stations || []);
+    renderBanner(data.stations || []);
+    renderUnserved(data.unserved_slices || []);
+    renderLog(data.events || []);
+  } catch (e) {
+    setConnected(false);
+  } finally {
+    setTimeout(poll, POLL_MS);
+  }
+}
+
+poll();
+</script>
+</body>
+</html>
