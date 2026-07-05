@@ -75,19 +75,15 @@ class Registry(Generic[T]):
             raise DuplicateRegistrationError(name, self._category)
         self._factories[name] = factory
 
-    def create(self, name: str, *args: object, **kwargs: object) -> T:
+    def create(self, name: str) -> T:
         """Tạo một instance mới ứng với tên đã đăng ký.
-
-        ``*args``/``**kwargs`` (nếu có) được truyền thẳng vào factory —
-        hữu ích để inject :class:`~quantaslice.core.runtime.Configuration`
-        lúc tạo solver/provider mà không cần đổi cách đăng ký.
 
         Raises:
             ProviderNotFoundError: nếu ``name`` chưa được đăng ký.
         """
         if name not in self._factories:
             raise ProviderNotFoundError(name, self._category, tuple(self._factories))
-        return self._factories[name](*args, **kwargs)
+        return self._factories[name]()
 
     def is_registered(self, name: str) -> bool:
         return name in self._factories
