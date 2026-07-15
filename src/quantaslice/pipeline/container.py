@@ -13,6 +13,8 @@ from __future__ import annotations
 # Import để đăng ký (side-effect) các provider bootstrap mặc định vào
 # registry trước khi DependencyContainer.build_runner() tra.
 import quantaslice.pipeline.bootstrap_providers  # noqa: F401
+from quantaslice.ai import provider_registry as ai_provider_registry
+from quantaslice.core.protocols import PredictionProvider
 from quantaslice.core.runtime import Configuration
 from quantaslice.core.types import BaseStation, SliceRequest
 from quantaslice.orchestrator import orchestrator_registry
@@ -43,7 +45,7 @@ class DependencyContainer:
         slices: tuple[SliceRequest, ...],
         stations: tuple[BaseStation, ...],
     ) -> Runner:
-        provider = prediction_provider_registry.create(config.prediction_provider)
+        provider = DependencyContainer._create_provider(config)
         solver = solver_registry.create(config.solver, config=config)
         orchestrator = orchestrator_registry.create(config.orchestrator)
 
@@ -55,3 +57,13 @@ class DependencyContainer:
             stations=stations,
             config=config,
         )
+
+    @staticmethod
+    def _create_provider(config: Configuration) -> PredictionProvider:
+        """Tra provider theo tên: ưu tiên package ``ai`` (ML thật, cần
+        ``config`` để lấy đường dẫn artifact), lùi về bootstrap provider
+        (mock/random/threshold) nếu tên không thuộc ``ai``."""
+        name = config.prediction_provider
+        if ai_provider_registry.is_registered(name):
+            return ai_provider_registry.create(name, config=config)
+        return prediction_provider_registry.create(name)
