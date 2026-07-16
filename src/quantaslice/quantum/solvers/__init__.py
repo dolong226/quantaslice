@@ -6,5 +6,6 @@ bộ của package ``quantum``, được đăng ký vào ``solver_registry`` ở
 from quantaslice.quantum.solvers.classical_greedy_solver import ClassicalGreedySolver
 from quantaslice.quantum.solvers.qaoa_aer_solver import QAOAAerSolver
 from quantaslice.quantum.solvers.qaoa_ibmq_solver import QAOAIBMQSolver
+from quantaslice.quantum.solvers.qaoa_quapp_solver import QAOAQuappSolver
 
-__all__ = ["QAOAAerSolver", "QAOAIBMQSolver", "ClassicalGreedySolver"]
+__all__ = ["QAOAAerSolver", "QAOAIBMQSolver", "QAOAQuappSolver", "ClassicalGreedySolver"]

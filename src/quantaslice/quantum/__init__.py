@@ -10,11 +10,12 @@ Ràng buộc kiến trúc quan trọng nhất: package này CHỈ import từ
 
 from quantaslice.core.protocols import OptimizationSolver
 from quantaslice.core.registry import Registry
-from quantaslice.quantum.solvers import ClassicalGreedySolver, QAOAAerSolver, QAOAIBMQSolver
+from quantaslice.quantum.solvers import ClassicalGreedySolver, QAOAAerSolver, QAOAIBMQSolver, QAOAQuappSolver
 
 solver_registry: Registry[OptimizationSolver] = Registry("solver")
 solver_registry.register_instance_factory("qaoa_aer", QAOAAerSolver)
 solver_registry.register_instance_factory("qaoa_ibmq", QAOAIBMQSolver)
+solver_registry.register_instance_factory("qaoa_quapp", QAOAQuappSolver)
 solver_registry.register_instance_factory("classical_greedy", ClassicalGreedySolver)
 
 # Import sau khi solver_registry đã sẵn sàng, vì api.solve() tra cứu

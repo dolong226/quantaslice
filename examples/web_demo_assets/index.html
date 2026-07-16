@@ -84,6 +84,70 @@
   .dot.ok { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
   .dot.bad { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
 
+  /* ---------- Core value metric ---------- */
+  .metric-bar {
+    display: flex;
+    gap: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 22px;
+  }
+  .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .metric-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--teal);
+  }
+  .metric-value.na { color: var(--muted); font-size: 16px; font-weight: 400; }
+
+  /* ---------- Controls (clickable prototype) ---------- */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn:hover { border-color: var(--coral); color: var(--coral); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn.trigger { border-color: rgba(255,93,93,0.35); }
+  .btn.reset { color: var(--muted); }
+  .btn.reset:hover { border-color: var(--muted); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .controls-hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    margin: -12px 0 18px;
+  }
+
   /* ---------- Emergency banner ---------- */
   .banner {
     display: none;
@@ -312,11 +376,33 @@
     </div>
   </header>
 
+  <div class="metric-bar">
+    <div class="metric">
+      <span class="metric-label">Last reallocation latency</span>
+      <span class="metric-value" id="metric-last">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Average latency</span>
+      <span class="metric-value" id="metric-avg">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Reallocations so far</span>
+      <span class="metric-value" id="metric-count">—</span>
+    </div>
+  </div>
+
   <div class="banner" id="banner">
     <span class="glyph">⚠</span>
     <strong>EMERGENCY</strong>
     <span class="detail" id="banner-detail"></span>
   </div>
+
+  <div class="controls" id="controls">
+    <!-- nút Trigger cho từng trạm được JS sinh động theo station_ids -->
+  </div>
+  <p class="controls-hint">
+    Nút trên dùng để <em>canh thời điểm demo</em> — bộ phát hiện bất thường (AI/ML) vẫn đang tự chạy nền độc lập với dữ liệu thật.
+  </p>
 
   <div class="stations" id="stations"></div>
 
@@ -338,10 +424,54 @@
 const POLL_MS = 300;
 let lastUpdateTs = null;
 
+let renderedStationIds = null;
+
+function renderControls(stationIds) {
+  // Chỉ vẽ lại nếu danh sách trạm thay đổi (tránh mất trạng thái hover/focus mỗi lần poll)
+  const key = stationIds.join(",");
+  if (key === renderedStationIds) return;
+  renderedStationIds = key;
+
+  const box = document.getElementById("controls");
+  const triggerBtns = stationIds.map(
+    id => `<button class="btn trigger" data-gnb="${id}">🚨 Trigger emergency tại ${id}</button>`
+  ).join("");
+  box.innerHTML = triggerBtns + `<button class="btn reset" id="reset-btn">↺ Reset</button>`;
+
+  box.querySelectorAll(".btn.trigger").forEach(btn => {
+    btn.addEventListener("click", () => callAction(`/trigger?gnb=${btn.dataset.gnb}`, btn));
+  });
+  document.getElementById("reset-btn").addEventListener("click", (e) => callAction("/reset", e.target));
+}
+
+async function callAction(path, btn) {
+  btn.disabled = true;
+  try {
+    await fetch(path, { method: "POST" });
+  } catch (e) {
+    // im lặng — poll() tiếp theo sẽ tự cập nhật trạng thái kết nối
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 400);
+  }
+}
+
 function fmtTime(iso) {
   if (!iso) return "—";
   const m = iso.match(/T(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/);
   return m ? m[1] : iso;
+}
+
+function renderMetric(metric) {
+  const fmtMs = (v) => v === null || v === undefined ? "—" : `${v.toFixed(0)} ms`;
+  const lastEl = document.getElementById("metric-last");
+  const avgEl = document.getElementById("metric-avg");
+  const countEl = document.getElementById("metric-count");
+
+  lastEl.textContent = fmtMs(metric.last_latency_ms);
+  lastEl.className = "metric-value" + (metric.last_latency_ms === null ? " na" : "");
+  avgEl.textContent = fmtMs(metric.avg_latency_ms);
+  avgEl.className = "metric-value" + (metric.avg_latency_ms === null ? " na" : "");
+  countEl.textContent = metric.n_reallocations ?? "0";
 }
 
 function renderStations(stations) {
@@ -414,7 +544,7 @@ function renderLog(events) {
       <span class="ts">${fmtTime(e.timestamp)}</span>
       <span>${e.gnb_id}</span>
       <span class="flag">${e.emergency ? 'EMERGENCY' : 'normal'}</span>
-      <span>${e.allocation_summary}</span>
+      <span>${e.allocation_summary}${e.latency_ms !== null && e.latency_ms !== undefined ? ` <span style="color:var(--teal)">(${e.latency_ms.toFixed(0)}ms)</span>` : ''}</span>
     </div>
   `).join("");
 }
@@ -439,6 +569,8 @@ async function poll() {
       document.getElementById("last-update").textContent = fmtTime(data.last_update);
     }
     renderStations(data.stations || []);
+    renderControls(data.station_ids || []);
+    renderMetric(data.metric || {});
     renderBanner(data.stations || []);
     renderUnserved(data.unserved_slices || []);
     renderLog(data.events || []);
