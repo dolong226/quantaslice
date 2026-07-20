@@ -27,7 +27,21 @@ from quantaslice.ai.models.baselines import GradientBoostingDetector
 from quantaslice.ai.provider import MLPredictionProvider, coloran_feature_window
 from quantaslice.ai.train.baseline import run_training
 from quantaslice.core.protocols import PredictionProvider
-from quantaslice.core.types import FeatureWindow, Prediction
+from quantaslice.core.types import (
+    BaseStation, FeatureWindow, Prediction, SliceRequest, SliceType,
+)
+
+
+def _topology():
+    """Slices/stations tối thiểu (dùng core types trực tiếp) — không phụ
+    thuộc helper của orchestrator."""
+    slices = (
+        SliceRequest("s0-eMBB", SliceType.EMBB, 17.0),
+        SliceRequest("s1-mMTC", SliceType.MMTC, 17.0),
+        SliceRequest("s2-URLLC", SliceType.URLLC, 17.0),
+    )
+    stations = (BaseStation("bs-1", 50.0), BaseStation("bs-2", 50.0))
+    return slices, stations
 
 
 def _fit_detector_on_all(frames, wcfg):
@@ -131,14 +145,12 @@ def test_container_wires_ml_provider(tmp_path):
     from quantaslice.core.runtime import Configuration
     from quantaslice.pipeline import DependencyContainer
     from quantaslice.quantum import solver_registry  # noqa: F401 (đăng ký solver)
-    from quantaslice.orchestrator.coloran_loader import ColORANLoader
 
     config = Configuration(
         prediction_provider="ml", solver="classical_greedy", orchestrator="mock_oran",
         extra={"ml_artifact": path},
     )
-    slices = ColORANLoader.create_slices()
-    stations = ColORANLoader.create_stations(n_stations=2)
+    slices, stations = _topology()
     runner = DependencyContainer.build_runner(config, slices=slices, stations=stations)
 
     win = coloran_feature_window(frames[0], end_idx=250, lookback=20, gnb_id="bs-1")
@@ -151,11 +163,8 @@ def test_container_threshold_provider_still_works():
     """Provider bootstrap 'threshold' không thuộc ai registry vẫn build được."""
     from quantaslice.core.runtime import Configuration
     from quantaslice.pipeline import DependencyContainer
-    from quantaslice.orchestrator.coloran_loader import ColORANLoader
 
     config = Configuration(prediction_provider="threshold", solver="classical_greedy")
-    runner = DependencyContainer.build_runner(
-        config, slices=ColORANLoader.create_slices(),
-        stations=ColORANLoader.create_stations(n_stations=2),
-    )
+    slices, stations = _topology()
+    runner = DependencyContainer.build_runner(config, slices=slices, stations=stations)
     assert runner is not None
