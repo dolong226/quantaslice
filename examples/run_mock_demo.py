@@ -63,17 +63,24 @@ def build_topology() -> tuple[tuple[SliceRequest, ...], tuple[BaseStation, ...]]
         SliceRequest("s1", SliceType.EMBB, prb_required=20.0),
         SliceRequest("s2", SliceType.URLLC, prb_required=15.0),
         SliceRequest("s3", SliceType.MMTC, prb_required=5.0),
+        SliceRequest("s4", SliceType.EMBB, prb_required=10.0),
+        SliceRequest("s5", SliceType.URLLC, prb_required=12.0),
+        SliceRequest("s6", SliceType.MMTC, prb_required=8.0),
+        SliceRequest("s7", SliceType.EMBB, prb_required=15.0),
     )
     stations = (
         BaseStation("gnb-1", prb_capacity=30.0),
         BaseStation("gnb-2", prb_capacity=20.0),
+        BaseStation("gnb-3", prb_capacity=25.0),
+        BaseStation("gnb-4", prb_capacity=40.0),
+        BaseStation("gnb-5", prb_capacity=35.0),
     )
     return slices, stations
 
 
 def build_stream() -> StreamSimulator:
     records = ItalianTelecomDatasetLoader.generate_synthetic(
-        cell_ids=("gnb-1", "gnb-2"),
+        cell_ids=("gnb-1", "gnb-2", "gnb-3", "gnb-4", "gnb-5"),
         start=datetime(2026, 7, 4, tzinfo=timezone.utc),
         interval=timedelta(seconds=2),  # rút ngắn từ 10 phút thật, xem docstring module
         n_intervals=12,  # tổng 24s dữ liệu gốc
