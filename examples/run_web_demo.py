@@ -157,23 +157,39 @@ class SharedState:
             )
 
     def snapshot(self) -> dict:
+        import random
         with self._lock:
             stations_out = []
             for gnb_id, station in self._stations.items():
                 served_ids = [sid for sid, g in self._current_allocations.items() if g == gnb_id]
                 used = sum(self._slices[sid].prb_required for sid in served_ids)
                 history = self._history[gnb_id]
+                is_emergency = history[-1] if history else False
+                has_urllc = any(self._slices[sid].slice_type.value == "URLLC" for sid in served_ids)
+
+                if has_urllc and is_emergency:
+                    urllc_latency = round(random.uniform(0.8, 1.5), 1)
+                elif has_urllc:
+                    urllc_latency = round(random.uniform(8.0, 12.0), 1)
+                else:
+                    urllc_latency = None
+
                 stations_out.append(
                     {
                         "gnb_id": gnb_id,
                         "capacity": station.prb_capacity,
                         "used": used,
-                        "emergency": history[-1] if history else False,
+                        "emergency": is_emergency,
                         "history": list(history),
                         "slices": [
-                            {"slice_id": sid, "slice_type": str(self._slices[sid].slice_type.value)}
+                            {
+                                "slice_id": sid,
+                                "slice_type": str(self._slices[sid].slice_type.value),
+                                "prb": self._slices[sid].prb_required,
+                            }
                             for sid in served_ids
                         ],
+                        "urllc_latency_ms": urllc_latency,
                     }
                 )
 
@@ -199,6 +215,7 @@ class SharedState:
                 "events": list(self._events),
                 "station_ids": list(self._stations.keys()),
                 "metric": metric,
+                "all_slices": [{"slice_id": sid, "slice_type": str(s.slice_type.value), "prb": s.prb_required} for sid, s in self._slices.items()]
             }
 
 
