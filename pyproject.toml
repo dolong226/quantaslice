@@ -10,7 +10,9 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.26",
     "pyyaml>=6.0",
-    "torch>=2.13.0"
+    "torch>=2.13.0",
+    "pupl==3.3.2",
+    "python-sat==1.9.dev7",
 ]
 
 [project.optional-dependencies]
