@@ -7,8 +7,9 @@ dùng baseline; ``load_detector`` unpickle sẽ tự nạp lớp cần thiết.
 """
 
 from quantaslice.ai.models.baselines import GradientBoostingDetector
+from quantaslice.ai.models.arima import GlobalARDetector, LocalARIMADetector
 
-__all__ = ["GradientBoostingDetector", "load_detector"]
+__all__ = ["GradientBoostingDetector", "GlobalARDetector", "LocalARIMADetector", "load_detector"]
 
 
 def load_detector(path: str) -> object:
