@@ -1,9 +1,14 @@
-# QuantaSlice
+## QuantaSlice
 
 QuantaSlice is a hackathon project for 5G Network Slice Allocation. It combines AI-based emergency detection with quantum optimization (QUBO + QAOA) to dynamically allocate radio resources under changing network conditions.
 
-## Project Structure
+<p align="center">
+  <img width="1421" height="791" src="https://github.com/user-attachments/assets/92b01b50-5103-43e7-b54e-c66f0034231d" />
+  <br>
+  <em>Figure 1. QuantaSlice demo interface showing dynamic 5G network slice allocation.</em>
+</p>
 
+## Project Structure
 ```text
 quantaslice/
 ├── src/
